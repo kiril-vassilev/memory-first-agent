@@ -71,7 +71,14 @@ The file `prompts.txt` contains all my prompts. Please, convert it to `PROMPTS.m
 
 Modify README.md Memory-First Web Agent (Step 2) section to descibe all the functinalities (not only Step 2)
 
-
 ## Prompt 7
 
 Please, add a short "Architrecture flow" diagram section (Mermaid)
+
+## Prompt 8
+
+Please, add a safeguard node on top of the graph. It should not allow basic prompt-injection. 
+
+## Prompt 9
+
+Please, update README.md. 

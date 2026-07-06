@@ -3,7 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Any
+import re
+from typing import Any, cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import AzureOpenAIEmbeddings
@@ -29,6 +30,50 @@ class AgentState(TypedDict):
     summary: str
     answer: str
     sources: list[dict[str, str]]
+
+
+def _detect_prompt_injection(query: str) -> bool:
+    lowered = query.lower()
+
+    high_risk_patterns = [
+        r"ignore\s+(all\s+)?(previous|prior|above)\s+instructions",
+        r"disregard\s+(the\s+)?(system|developer)\s+prompt",
+        r"reveal\s+(the\s+)?(system|developer)\s+prompt",
+        r"show\s+me\s+your\s+(system|hidden)\s+instructions",
+        r"jailbreak",
+        r"do\s+anything\s+now",
+        r"bypass\s+(safety|guardrails|polic(y|ies))",
+        r"pretend\s+to\s+be\s+unrestricted",
+        r"you\s+are\s+now\s+(in\s+)?developer\s+mode",
+        r"override\s+(all\s+)?instructions",
+    ]
+
+    return any(re.search(pattern, lowered) is not None for pattern in high_risk_patterns)
+
+
+def _safeguard_node(state: AgentState) -> dict[str, Any]:
+    query = state.get("query", "")
+    if _detect_prompt_injection(query):
+        return {
+            "route": "blocked_prompt_injection",
+            "answer": (
+                "I cannot comply with instructions that attempt to override system behavior or safety constraints. "
+                "Please ask a direct question about the topic you need."
+            ),
+            "sources": [],
+            "memory_hits": [],
+            "memory_context": "",
+            "documents": [],
+            "pages_markdown": [],
+            "summary": "",
+            "ingested_chunk_count": 0,
+            "top_similarity": 0.0,
+        }
+    return {"route": "safeguard_pass"}
+
+
+def _after_safeguard(state: AgentState) -> str:
+    return END if state.get("route") == "blocked_prompt_injection" else "embed_query"
 
 
 def _topic_from_query(query: str) -> str:
@@ -238,26 +283,31 @@ def build_graph(
     memory_similarity_threshold: float,
     memory_k: int = 5,
 ):
-    graph = StateGraph(AgentState)
+    graph: StateGraph[AgentState] = StateGraph(AgentState)
 
-    graph.add_node("embed_query", lambda s: _embed_query_node(s, embeddings))
+    graph.add_node("safeguard", _safeguard_node)
+    graph.add_node("embed_query", lambda state: _embed_query_node(cast(AgentState, state), embeddings))
     graph.add_node(
         "search_memory",
-        lambda s: _search_memory_node(
-            s,
+        lambda state: _search_memory_node(
+            cast(AgentState, state),
             memory_store=memory_store,
             threshold=memory_similarity_threshold,
             memory_k=memory_k,
         ),
     )
-    graph.add_node("answer_from_memory", lambda s: _answer_from_memory_node(s, model))
-    graph.add_node("search_web", lambda s: _search_web_node(s, search_service))
-    graph.add_node("fetch_pages", lambda s: _fetch_pages_node(s, search_service))
-    graph.add_node("summarize", lambda s: _summarize_node(s, model))
-    graph.add_node("ingest_memory", lambda s: _ingest_memory_node(s, memory_store, embeddings))
-    graph.add_node("answer", lambda s: _answer_node(s, model))
+    graph.add_node("answer_from_memory", lambda state: _answer_from_memory_node(cast(AgentState, state), model))
+    graph.add_node("search_web", lambda state: _search_web_node(cast(AgentState, state), search_service))
+    graph.add_node("fetch_pages", lambda state: _fetch_pages_node(cast(AgentState, state), search_service))
+    graph.add_node("summarize", lambda state: _summarize_node(cast(AgentState, state), model))
+    graph.add_node(
+        "ingest_memory",
+        lambda state: _ingest_memory_node(cast(AgentState, state), memory_store, embeddings),
+    )
+    graph.add_node("answer", lambda state: _answer_node(cast(AgentState, state), model))
 
-    graph.add_edge(START, "embed_query")
+    graph.add_edge(START, "safeguard")
+    graph.add_conditional_edges("safeguard", _after_safeguard, [END, "embed_query"])
     graph.add_edge("embed_query", "search_memory")
     graph.add_conditional_edges("search_memory", _should_use_memory, ["answer_from_memory", "search_web"])
     graph.add_edge("answer_from_memory", END)
