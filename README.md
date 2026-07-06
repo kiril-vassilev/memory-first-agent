@@ -19,7 +19,7 @@ This repository contains a complete Python GenAI workflow for retrieval, memory,
 
 ```mermaid
 flowchart TD
-   Q[User query] --> G[Safeguard node\nPrompt-injection check]
+   Q[User query] --> G[Safeguard node]
    G --> B{Injection detected?}
    B -->|Yes| X[Block and return safe refusal]
    B -->|No| E[Embed query]

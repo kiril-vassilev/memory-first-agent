@@ -82,3 +82,7 @@ Please, add a safeguard node on top of the graph. It should not allow basic prom
 ## Prompt 9
 
 Please, update README.md. 
+
+## Prompt 10
+
+Update the safeguard node to use a LLM for better efficiency.
