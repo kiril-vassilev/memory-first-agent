@@ -1,0 +1,48 @@
+Build a Memory‑First Web Agent in Python
+
+Design and implement a GenAI agent that:
+
+Answers user questions by checking a Redis memory first (vector search over embedded data).
+Falls back to the web when memory misses, then ingests what it finds into Redis for future reuse.
+Returns a grounded answer with clear metadata (URLs) to the sources used.
+ 
+
+You may implement using LangGraph, LangChain, MS Agent Freamwork, or plain Python. Python is mandatory; framework choice is up to you.
+You could use AI assistance GitHub CoPilot, if you did, please include all instructions and explanation on how you have used code assistance.
+You are not required to host or deploy the solution, please share the repo only. 
+Functional requirements (what it must do) 
+Memory‑first routing:
+
+Embed the user query, perform vector search in Redis.
+If top result similarity ≥ threshold (default 0.7), answer from memory only (include stored metadata).
+Else search the web, fetch top pages, summarize, store chunks & metadata in Redis, then answer using retrieved context.
+Web search & fetch:
+
+Use any web search APIs
+Fetch web pages content after search. 
+Convert webpages into a markdown content.
+LLMs:
+
+Use 2 llm of your choice(one for conversation and one for analytics), however provide explanation of your choice, cost & quality. 
+Log:
+
+Log each turn was it a memory hit or memory miss + WebSearch 
+Analytics:
+
+Provide analytics on what type of topics and questions users asked.
+Non‑functional requirements
+
+Security: Basic prompt‑injection guardrails
+Reliability: Timeouts/retries for network or token issues.
+
+* Basic
+* Redis
+* GitHub
+* Security guard
+* Multiple LLMs
+* Diagram
+* Reliability
+
+
+
+
