@@ -66,3 +66,12 @@ docker run -d --name redis-stack -p 6379:6379 -p 8001:8001 redis/redis-stack:lat
 ## Prompt 5
 
 The file `prompts.txt` contains all my prompts. Please, convert it to `PROMPTS.md` so it is nicer to read.
+
+## Prompt 6
+
+Modify README.md Memory-First Web Agent (Step 2) section to descibe all the functinalities (not only Step 2)
+
+
+## Prompt 7
+
+Please, add a short "Architrecture flow" diagram section (Mermaid)

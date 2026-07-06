@@ -1,14 +1,35 @@
-# Memory-First Web Agent (Step 2)
+# Memory-First Web Agent
 
-This repository now contains step 2 of the project:
+This repository contains a complete Python GenAI workflow for retrieval, memory, and analytics:
 
-- Embed the user query and search Redis vector memory first.
-- Route by similarity threshold (`MEMORY_SIMILARITY_THRESHOLD`, default `0.7`).
-- If memory hit: answer from memory context only.
-- If memory miss: search web with Tavily, fetch top 3 pages, summarize, ingest chunks into Redis, then answer.
-- Return grounded responses with source URLs.
-- Log each turn with hit/miss metadata in `logs/turns.jsonl`.
-- Generate analytics dashboard files from logs.
+- Uses Azure OpenAI chat and embeddings for answering and retrieval.
+- Uses LangGraph to orchestrate an end-to-end agent flow.
+- Starts with memory-first routing: embeds the query and searches Redis vector memory.
+- Applies a similarity gate with `MEMORY_SIMILARITY_THRESHOLD` (default `0.7`).
+- On memory hit: answers only from retrieved memory context.
+- On memory miss: runs Tavily web search, retrieves top 3 results, fetches page content, converts content to markdown, summarizes it, then answers.
+- Ingests fetched web content into Redis as embedded chunks for future reuse.
+- Returns grounded answers with source URLs in CLI output.
+- Logs each turn to `logs/turns.jsonl` with route, similarity, topic, ingestion count, and sources.
+- Generates analytics outputs (`logs/analytics_summary.json` and `logs/dashboard.html`) from turn logs.
+
+## Architecture flow
+
+```mermaid
+flowchart TD
+   Q[User query] --> E[Embed query]
+   E --> M[Redis vector search]
+   M --> T{Similarity >= threshold?}
+   T -->|Yes| H[Answer from memory]
+   T -->|No| S[Tavily search]
+   S --> F[Fetch top 3 pages]
+   F --> Z[Summarize content]
+   Z --> I[Ingest chunks into Redis]
+   I --> A[Answer from summary]
+   H --> L[Log turn]
+   A --> L
+   L --> D[Analytics dashboard]
+```
 
 ## Setup
 
