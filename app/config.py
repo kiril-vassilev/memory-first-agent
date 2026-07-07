@@ -21,6 +21,8 @@ class Settings:
     redis_url: str
     redis_index_name: str
     memory_similarity_threshold: float
+    memory_k: int
+    tavily_max_results: int
 
 
 
@@ -36,6 +38,8 @@ def get_settings() -> Settings:
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),
         redis_index_name=os.getenv("REDIS_INDEX_NAME", "memory_idx"),
         memory_similarity_threshold=float(os.getenv("MEMORY_SIMILARITY_THRESHOLD", "0.7")),
+        memory_k=int(os.getenv("MEMORY_K", "5")),
+        tavily_max_results=int(os.getenv("TAVILY_MAX_RESULTS", "10")),
     )
 
     missing = [

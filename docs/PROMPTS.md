@@ -94,3 +94,11 @@ Update the safeguard node to use a LLM for better efficiency.
 ## Prompt 12
 
 /plan When I search the memory store, I want to add 'topic' filtering.
+
+## Prompt 13
+
+Add memory_k=10  as a setting similar to memory_similarity_threshold=settings.memory_similarity_threshold. If not provided, the default is 5
+
+## Prompt 14
+
+in #sym:search_top_documents we have a parameter #sym:max_results  defaulted to 10. Please, can you add it to the settings? Please, update README.md and .env.example

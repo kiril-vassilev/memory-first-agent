@@ -62,7 +62,8 @@ def create_app():
         search_service=search_service,
         memory_store=memory_store,
         memory_similarity_threshold=settings.memory_similarity_threshold,
-        memory_k=10,
+        memory_k=settings.memory_k,
+        tavily_max_results=settings.tavily_max_results,
     )
     return graph
 

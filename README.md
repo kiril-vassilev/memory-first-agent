@@ -9,7 +9,7 @@ This repository contains a complete Python GenAI workflow for retrieval, memory,
 - Memory search is topic-aware for non-general topics and falls back to unfiltered search if topic-filtered retrieval returns no hits.
 - Applies a similarity gate with `MEMORY_SIMILARITY_THRESHOLD` (default `0.7`).
 - On memory hit: answers only from retrieved memory context.
-- On memory miss: runs Tavily web search, retrieves top 3 results, fetches page content, converts content to markdown, summarizes it, then answers.
+- On memory miss: runs Tavily web search, retrieves up to `TAVILY_MAX_RESULTS` results, fetches page content, converts content to markdown, summarizes it, then answers.
 - Ingests fetched web content into Redis as embedded chunks for future reuse.
 - On injection detection: blocks execution before memory/web/tool calls and returns a safe refusal.
 - Returns grounded answers with source URLs in CLI output.
@@ -64,6 +64,8 @@ Required variables:
 - `REDIS_URL` (example: `redis://localhost:6379`)
 - `REDIS_INDEX_NAME` (example: `memory_idx`)
 - `MEMORY_SIMILARITY_THRESHOLD` (default: `0.7`)
+- `MEMORY_K` (default: `5`; the number of nearest neighbors Redis should return)
+- `TAVILY_MAX_RESULTS` (default: `10`; the number of Tavily search results to request)
 
 ## Redis requirement
 

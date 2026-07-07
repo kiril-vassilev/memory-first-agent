@@ -171,9 +171,13 @@ def _should_use_memory(state: AgentState) -> str:
     return "answer_from_memory" if state.get("route") == "memory_hit" else "search_web"
 
 
-def _search_web_node(state: AgentState, search_service: TavilySearchService) -> dict[str, Any]:
+def _search_web_node(
+    state: AgentState,
+    search_service: TavilySearchService,
+    max_results: int,
+) -> dict[str, Any]:
     query = state["query"]
-    documents = search_service.search_top_documents(query=query, max_results=10)
+    documents = search_service.search_top_documents(query=query, max_results=max_results)
     sources = [{"title": doc.title, "url": doc.url} for doc in documents if doc.url]
     return {"documents": documents, "sources": sources}
 
@@ -307,6 +311,7 @@ def build_graph(
     memory_store: RedisMemoryStore,
     memory_similarity_threshold: float,
     memory_k: int = 5,
+    tavily_max_results: int = 10,
 ):
     graph: StateGraph[AgentState] = StateGraph(AgentState)
 
@@ -321,7 +326,8 @@ def build_graph(
         ),
     )
     graph.add_node("answer_from_memory", lambda state: _answer_from_memory_node(cast(AgentState, state), model))
-    graph.add_node("search_web", lambda state: _search_web_node(cast(AgentState, state), search_service))
+    graph.add_node("search_web", lambda state: _search_web_node(cast(AgentState, state), search_service, tavily_max_results),
+    )
     graph.add_node("fetch_pages", lambda state: _fetch_pages_node(cast(AgentState, state), search_service))
     graph.add_node("summarize", lambda state: _summarize_node(cast(AgentState, state), model))
     graph.add_node("ingest_memory", lambda state: _ingest_memory_node(cast(AgentState, state), memory_store, embeddings),
