@@ -17,7 +17,7 @@ from app.tools import TavilySearchService
 def create_app():
     settings = get_settings()
 
-    model = AzureChatOpenAI(  # type: ignore[call-arg]
+    model = AzureChatOpenAI(  
         azure_deployment=settings.azure_openai_deployment,
         api_version=settings.azure_openai_api_version,
         api_key=SecretStr(settings.azure_openai_api_key),
@@ -25,7 +25,17 @@ def create_app():
         temperature=0,
     )
 
-    embeddings = AzureOpenAIEmbeddings(  # type: ignore[call-arg]
+    safeguard_model = model
+    if settings.azure_openai_safeguard_deployment:
+        safeguard_model = AzureChatOpenAI(  
+            azure_deployment=settings.azure_openai_safeguard_deployment,
+            api_version=settings.azure_openai_api_version,
+            api_key=SecretStr(settings.azure_openai_api_key),
+            azure_endpoint=settings.azure_openai_endpoint,
+            temperature=0,
+        )
+
+    embeddings = AzureOpenAIEmbeddings(  
         azure_deployment=settings.azure_openai_embedding_deployment,
         api_version=settings.azure_openai_api_version,
         api_key=SecretStr(settings.azure_openai_api_key),
@@ -47,10 +57,12 @@ def create_app():
     search_service = TavilySearchService(api_key=settings.tavily_api_key)
     graph = build_graph(
         model=model,
+        safeguard_model=safeguard_model,
         embeddings=embeddings,
         search_service=search_service,
         memory_store=memory_store,
         memory_similarity_threshold=settings.memory_similarity_threshold,
+        memory_k=10,
     )
     return graph
 

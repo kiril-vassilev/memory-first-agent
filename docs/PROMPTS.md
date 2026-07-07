@@ -86,3 +86,11 @@ Please, update README.md.
 ## Prompt 10
 
 Update the safeguard node to use a LLM for better efficiency.
+
+## Prompt 11
+
+/plan I need the safeguard node using different model (different azure_openai_deployment).
+
+## Prompt 12
+
+/plan When I search the memory store, I want to add 'topic' filtering.

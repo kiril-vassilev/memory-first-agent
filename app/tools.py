@@ -6,6 +6,10 @@ from typing import Any
 from markdownify import markdownify as md
 from tavily import TavilyClient
 
+EXCLUDED_DOMAINS = [
+    "youtube.com",
+    "youtu.be"
+]
 
 @dataclass
 class SearchDocument:
@@ -18,17 +22,18 @@ class TavilySearchService:
     def __init__(self, api_key: str) -> None:
         self._client = TavilyClient(api_key=api_key)
 
-    def search_top_documents(self, query: str, max_results: int = 3) -> list[SearchDocument]:
+    def search_top_documents(self, query: str, max_results: int = 10) -> list[SearchDocument]:
         response = self._client.search(
             query=query,
             max_results=max_results,
             include_answer=False,
             include_raw_content=False,
+            exclude_domains=EXCLUDED_DOMAINS
         )
         results = response.get("results", [])
 
         docs: list[SearchDocument] = []
-        for item in results[:max_results]:
+        for item in results:
             docs.append(
                 SearchDocument(
                     title=item.get("title", "Untitled"),
@@ -36,10 +41,11 @@ class TavilySearchService:
                     content=item.get("content", ""),
                 )
             )
+            # print(f"Found document: {docs[-1].title} - {docs[-1].url}; Content length: {len(docs[-1].content)}")
         return docs
 
     def fetch_page_as_markdown(self, url: str) -> str:
-        response: Any = self._client.extract(url)
+        response: Any = self._client.extract(url, include_images=False)
 
         # Tavily extract responses can vary by SDK version. This handles common shapes.
         if isinstance(response, dict):
@@ -50,10 +56,12 @@ class TavilySearchService:
                 if isinstance(markdown, str) and markdown.strip():
                     return self._to_markdown(markdown)
 
-            # Fallback if the SDK returns a direct content payload.
-            raw_content = response.get("raw_content") or response.get("content")
-            if isinstance(raw_content, str) and raw_content.strip():
-                return self._to_markdown(raw_content)
+            # print(f"Unexpected response structure from Tavily extract for URL {url}: {response}")
+
+            ## Fallback if the SDK returns a direct content payload.
+            # raw_content = response.get("raw_content") or response.get("content")
+            # if isinstance(raw_content, str) and raw_content.strip():
+            #     return self._to_markdown(raw_content)
 
         return ""
 

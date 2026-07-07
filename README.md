@@ -6,6 +6,7 @@ This repository contains a complete Python GenAI workflow for retrieval, memory,
 - Uses Azure OpenAI chat and embeddings for answering and retrieval.
 - Uses LangGraph to orchestrate an end-to-end agent flow.
 - Starts with memory-first routing: embeds the query and searches Redis vector memory.
+- Memory search is topic-aware for non-general topics and falls back to unfiltered search if topic-filtered retrieval returns no hits.
 - Applies a similarity gate with `MEMORY_SIMILARITY_THRESHOLD` (default `0.7`).
 - On memory hit: answers only from retrieved memory context.
 - On memory miss: runs Tavily web search, retrieves top 3 results, fetches page content, converts content to markdown, summarizes it, then answers.
@@ -57,6 +58,7 @@ Required variables:
 - `AZURE_OPENAI_ENDPOINT`
 - `AZURE_OPENAI_API_VERSION` (example: `2024-02-01`)
 - `AZURE_OPENAI_DEPLOYMENT`
+- `AZURE_OPENAI_SAFEGUARD_DEPLOYMENT` (optional; if unset, safeguard uses `AZURE_OPENAI_DEPLOYMENT`)
 - `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`
 - `TAVILY_API_KEY`
 - `REDIS_URL` (example: `redis://localhost:6379`)
@@ -103,6 +105,7 @@ The CLI prints:
 ## Safeguard behavior
 
 - The safeguard runs before embedding, Redis search, Tavily search, and summarization.
+- You can point safeguard classification to a separate deployment with `AZURE_OPENAI_SAFEGUARD_DEPLOYMENT`.
 - If a query appears to be prompt-injection (for example, attempts to override system instructions), the agent stops early.
 - Blocked turns are logged with route `blocked_prompt_injection`.
 

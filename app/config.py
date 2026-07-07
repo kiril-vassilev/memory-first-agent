@@ -15,6 +15,7 @@ class Settings:
     azure_openai_endpoint: str
     azure_openai_api_version: str
     azure_openai_deployment: str
+    azure_openai_safeguard_deployment: str
     azure_openai_embedding_deployment: str
     tavily_api_key: str
     redis_url: str
@@ -29,6 +30,7 @@ def get_settings() -> Settings:
         azure_openai_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT", ""),
         azure_openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION", ""),
         azure_openai_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT", ""),
+        azure_openai_safeguard_deployment=os.getenv("AZURE_OPENAI_SAFEGUARD_DEPLOYMENT", ""),
         azure_openai_embedding_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", ""),
         tavily_api_key=os.getenv("TAVILY_API_KEY", ""),
         redis_url=os.getenv("REDIS_URL", "redis://localhost:6379"),

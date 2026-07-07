@@ -58,10 +58,13 @@ def _llm_safeguard_verdict(query: str, model: AzureChatOpenAI) -> bool:
     return verdict.startswith("BLOCK")
 
 
-def _safeguard_node(state: AgentState, model: AzureChatOpenAI) -> dict[str, Any]:
+def _safeguard_node(
+    state: AgentState,
+    safeguard_model: AzureChatOpenAI,
+) -> dict[str, Any]:
     query = state.get("query", "")
-    
-    should_block = _llm_safeguard_verdict(query=query, model=model)
+
+    should_block = _llm_safeguard_verdict(query=query, model=safeguard_model)
 
     if should_block:
         return {
@@ -132,8 +135,14 @@ def _search_memory_node(
     threshold: float,
     memory_k: int,
 ) -> dict[str, Any]:
-    hits = memory_store.search(state["query_embedding"], k=memory_k)
+
+    topic = state.get("topic", "general")
+    # print(f"Searching memory for query: '{state['query']}' with topic '{topic}'...")
+
+    hits = memory_store.search(state["query_embedding"], k=memory_k, topic_filter=topic)
     top_similarity = hits[0].similarity if hits else 0.0
+
+    # print(f"Memory search results: {len(hits)} hits found. Top similarity: {top_similarity:.3f}. Threshold: {threshold:.3f}.")
 
     route = "memory_hit" if top_similarity >= threshold else "memory_miss"
     if not hits and top_similarity == 0.0:
@@ -164,14 +173,15 @@ def _should_use_memory(state: AgentState) -> str:
 
 def _search_web_node(state: AgentState, search_service: TavilySearchService) -> dict[str, Any]:
     query = state["query"]
-    documents = search_service.search_top_documents(query=query, max_results=3)
+    documents = search_service.search_top_documents(query=query, max_results=10)
     sources = [{"title": doc.title, "url": doc.url} for doc in documents if doc.url]
     return {"documents": documents, "sources": sources}
 
 
 def _fetch_pages_node(state: AgentState, search_service: TavilySearchService) -> dict[str, Any]:
     pages_markdown: list[str] = []
-    for doc in state.get("documents", [])[:3]:
+    for doc in state.get("documents", []):
+        # print(f"Fetching page for document '{doc.title}' from {doc.url}...")
         markdown = search_service.fetch_page_as_markdown(doc.url)
         if markdown.strip():
             pages_markdown.append(f"# {doc.title}\nSource: {doc.url}\n\n{markdown}")
@@ -201,6 +211,9 @@ def _summarize_node(state: AgentState, model: AzureChatOpenAI) -> dict[str, str]
             HumanMessage(content=prompt),
         ]
     )
+
+    # print(f"summary for query: '{query}': {response.content[:100]}... with {len(pages)} pages....")
+
     return {"summary": response.content if isinstance(response.content, str) else str(response.content)}
 
 
@@ -213,6 +226,7 @@ def _ingest_memory_node(
     inserted_total = 0
 
     for doc, page in zip(state.get("documents", []), state.get("pages_markdown", [])):
+        # print(f"Ingesting document '{doc.title}' from {doc.url} into memory...")
         chunks = _chunk_text(page)
         if not chunks:
             continue
@@ -224,7 +238,7 @@ def _ingest_memory_node(
             source_url=doc.url,
             topic=topic,
         )
-
+    # print(f"ingested_chunk_count '{inserted_total}'")
     return {"ingested_chunk_count": inserted_total}
 
 
@@ -287,6 +301,7 @@ def _log_turn(state: AgentState, log_path: Path = Path("logs/turns.jsonl")) -> N
 
 def build_graph(
     model: AzureChatOpenAI,
+    safeguard_model: AzureChatOpenAI,
     embeddings: AzureOpenAIEmbeddings,
     search_service: TavilySearchService,
     memory_store: RedisMemoryStore,
@@ -295,11 +310,10 @@ def build_graph(
 ):
     graph: StateGraph[AgentState] = StateGraph(AgentState)
 
-    graph.add_node("safeguard", lambda state: _safeguard_node(cast(AgentState, state), model))
+    graph.add_node("safeguard", lambda state: _safeguard_node(cast(AgentState, state), safeguard_model))
+    
     graph.add_node("embed_query", lambda state: _embed_query_node(cast(AgentState, state), embeddings))
-    graph.add_node(
-        "search_memory",
-        lambda state: _search_memory_node(
+    graph.add_node("search_memory", lambda state: _search_memory_node(
             cast(AgentState, state),
             memory_store=memory_store,
             threshold=memory_similarity_threshold,
@@ -310,14 +324,14 @@ def build_graph(
     graph.add_node("search_web", lambda state: _search_web_node(cast(AgentState, state), search_service))
     graph.add_node("fetch_pages", lambda state: _fetch_pages_node(cast(AgentState, state), search_service))
     graph.add_node("summarize", lambda state: _summarize_node(cast(AgentState, state), model))
-    graph.add_node(
-        "ingest_memory",
-        lambda state: _ingest_memory_node(cast(AgentState, state), memory_store, embeddings),
+    graph.add_node("ingest_memory", lambda state: _ingest_memory_node(cast(AgentState, state), memory_store, embeddings),
     )
     graph.add_node("answer", lambda state: _answer_node(cast(AgentState, state), model))
 
     graph.add_edge(START, "safeguard")
     graph.add_conditional_edges("safeguard", _after_safeguard, [END, "embed_query"])
+    # graph.add_edge(START, "embed_query")
+
     graph.add_edge("embed_query", "search_memory")
     graph.add_conditional_edges("search_memory", _should_use_memory, ["answer_from_memory", "search_web"])
     graph.add_edge("answer_from_memory", END)
