@@ -45,8 +45,10 @@ flowchart TD
 - A reranking step can be added to improve the relevance of retrieved chunks before answer generation.
 - A better topic classification using a lightweight LLM can be added.
 - Retrieval and output safeguards using a lightweight LLM can be added to validate retrieved content and generated responses.
+- An "I don't know" capability can be implemented when the available context is insufficient to answer confidently.
+- Output validation using a lightweight LLM can be added to verify that responses are grounded in the retrieved context before they are returned.
 - Conversation capabilities can be added with short-term memory.
-- Similar question detection can be added to reuse previous answers.
+- Similar question detection can be added to reuse previous answers. 
 - A user interface can be added.
 
 ## Setup
