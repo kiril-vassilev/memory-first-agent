@@ -28,7 +28,7 @@ flowchart TD
    M --> T{Similarity >= threshold?}
    T -->|Yes| H[Answer from memory]
    T -->|No| S[Tavily search]
-   S --> F[Fetch top 3 pages]
+   S --> F[Fetch top `TAVILY_MAX_RESULTS` pages]
    F --> Z[Summarize content]
    Z --> I[Ingest chunks into Redis]
    I --> A[Answer from summary]
@@ -66,6 +66,12 @@ Required variables:
 - `MEMORY_SIMILARITY_THRESHOLD` (default: `0.7`)
 - `MEMORY_K` (default: `5`; the number of nearest neighbors Redis should return)
 - `TAVILY_MAX_RESULTS` (default: `10`; the number of Tavily search results to request)
+- `REQUEST_TIMEOUT_SECONDS` (default: `30`)
+- `RETRY_MAX_ATTEMPTS` (default: `3`)
+- `RETRY_INITIAL_BACKOFF_SECONDS` (default: `1`)
+- `RETRY_MAX_BACKOFF_SECONDS` (default: `8`)
+
+Network calls use bounded retries with exponential backoff. If retries are exhausted, the CLI exits with a clear execution error instead of hanging.
 
 ## Redis requirement
 

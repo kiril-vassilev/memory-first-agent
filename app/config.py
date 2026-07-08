@@ -23,6 +23,10 @@ class Settings:
     memory_similarity_threshold: float
     memory_k: int
     tavily_max_results: int
+    request_timeout_seconds: float
+    retry_max_attempts: int
+    retry_initial_backoff_seconds: float
+    retry_max_backoff_seconds: float
 
 
 
@@ -40,6 +44,10 @@ def get_settings() -> Settings:
         memory_similarity_threshold=float(os.getenv("MEMORY_SIMILARITY_THRESHOLD", "0.7")),
         memory_k=int(os.getenv("MEMORY_K", "5")),
         tavily_max_results=int(os.getenv("TAVILY_MAX_RESULTS", "10")),
+        request_timeout_seconds=float(os.getenv("REQUEST_TIMEOUT_SECONDS", "30")),
+        retry_max_attempts=int(os.getenv("RETRY_MAX_ATTEMPTS", "3")),
+        retry_initial_backoff_seconds=float(os.getenv("RETRY_INITIAL_BACKOFF_SECONDS", "1")),
+        retry_max_backoff_seconds=float(os.getenv("RETRY_MAX_BACKOFF_SECONDS", "8")),
     )
 
     missing = [

@@ -6,6 +6,8 @@ from typing import Any
 from markdownify import markdownify as md
 from tavily import TavilyClient
 
+from app.retry_utils import RetryPolicy, run_with_retry
+
 EXCLUDED_DOMAINS = [
     "youtube.com",
     "youtu.be"
@@ -19,16 +21,23 @@ class SearchDocument:
 
 
 class TavilySearchService:
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, request_timeout_seconds: float, retry_policy: RetryPolicy) -> None:
         self._client = TavilyClient(api_key=api_key)
+        self._request_timeout_seconds = request_timeout_seconds
+        self._retry_policy = retry_policy
 
     def search_top_documents(self, query: str, max_results: int = 10) -> list[SearchDocument]:
-        response = self._client.search(
-            query=query,
-            max_results=max_results,
-            include_answer=False,
-            include_raw_content=False,
-            exclude_domains=EXCLUDED_DOMAINS
+        response = run_with_retry(
+            "Tavily search",
+            lambda: self._client.search(
+                query=query,
+                max_results=max_results,
+                include_answer=False,
+                include_raw_content=False,
+                exclude_domains=EXCLUDED_DOMAINS,
+                timeout=self._request_timeout_seconds,
+            ),
+            self._retry_policy,
         )
         results = response.get("results", [])
 
@@ -45,7 +54,11 @@ class TavilySearchService:
         return docs
 
     def fetch_page_as_markdown(self, url: str) -> str:
-        response: Any = self._client.extract(url, include_images=False)
+        response: Any = run_with_retry(
+            "Tavily page extraction",
+            lambda: self._client.extract(url, include_images=False, timeout=self._request_timeout_seconds),
+            self._retry_policy,
+        )
 
         # Tavily extract responses can vary by SDK version. This handles common shapes.
         if isinstance(response, dict):

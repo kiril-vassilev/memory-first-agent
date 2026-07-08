@@ -8,9 +8,12 @@ import uuid
 
 import numpy as np
 import redis
+from redis import exceptions as redis_exceptions
 from redis.commands.search.field import TagField, TextField, VectorField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
+
+from app.retry_utils import ExternalServiceError, RetryPolicy, run_with_retry
 
 
 @dataclass
@@ -29,11 +32,21 @@ class RedisMemoryStore:
         redis_url: str,
         index_name: str,
         embedding_dim: int,
+        request_timeout_seconds: float,
+        retry_policy: RetryPolicy,
     ) -> None:
-        self._client = redis.Redis.from_url(redis_url, decode_responses=False)
+        self._client = redis.Redis.from_url(
+            redis_url,
+            decode_responses=False,
+            socket_timeout=request_timeout_seconds,
+            socket_connect_timeout=request_timeout_seconds,
+            retry_on_timeout=True,
+        )
         self._index_name = index_name
         self._prefix = "mem:chunk:"
         self._embedding_dim = embedding_dim
+        self._request_timeout_seconds = request_timeout_seconds
+        self._retry_policy = retry_policy
         self._available = False
         self._ensure_index()
 
@@ -42,6 +55,8 @@ class RedisMemoryStore:
             self._client.ft(self._index_name).info()
             self._available = True
             return
+        except redis_exceptions.ResponseError:
+            pass
         except Exception:
             pass
 
@@ -66,10 +81,15 @@ class RedisMemoryStore:
 
         definition = IndexDefinition(prefix=[self._prefix], index_type=IndexType.HASH)
         try:
-            self._client.ft(self._index_name).create_index(schema, definition=definition)
+            run_with_retry(
+                "Redis index creation",
+                lambda: self._client.ft(self._index_name).create_index(schema, definition=definition),
+                self._retry_policy,
+            )
             self._available = True
-        except Exception:
+        except ExternalServiceError:
             self._available = False
+            raise
 
     @staticmethod
     def _to_vector_bytes(vector: list[float]) -> bytes:
@@ -126,7 +146,11 @@ class RedisMemoryStore:
                 "created_at": now,
                 "embedding": self._to_vector_bytes(vector),
             }
-            self._client.hset(key, mapping=cast(Any, mapping))
+            run_with_retry(
+                "Redis memory upsert",
+                lambda: self._client.hset(key, mapping=cast(Any, mapping)),
+                self._retry_policy,
+            )
             inserted += 1
 
         return inserted
@@ -148,6 +172,14 @@ class RedisMemoryStore:
                 escaped_topic = self._escape_tag_value(active_topic)
                 base = f"@topic:{{{escaped_topic}}}"
 
+            # Hibrid search with keywords. It can be implemented in the future if needed.
+            # q = (
+            #     Query(f"{keywords} {base}=>[KNN {k} @embedding $vec AS distance]")
+            #     .sort_by("distance")
+            #     .return_fields("id", "content", "title", "source_url", "topic", "distance")
+            #     .paging(0, k)
+            #     .dialect(2)                
+
             q = (
                 Query(f"{base}=>[KNN {k} @embedding $vec AS distance]")
                 .sort_by("distance")
@@ -159,15 +191,19 @@ class RedisMemoryStore:
             params: dict[str, str | int | float | bytes] = {
                 "vec": self._to_vector_bytes(query_embedding)
             }
-            return self._client.ft(self._index_name).search(q, query_params=params)
+            return run_with_retry(
+                "Redis vector search",
+                lambda: self._client.ft(self._index_name).search(q, query_params=params),
+                self._retry_policy,
+            )
 
         try:
             results: Any = _run_search(normalized_topic)
             if normalized_topic and not getattr(results, "docs", []):
                 results = _run_search(None)
-        except Exception:
+        except ExternalServiceError:
             self._available = False
-            return []
+            raise
 
         hits: list[MemoryHit] = []
         for doc in cast(list[Any], getattr(results, "docs", [])):
