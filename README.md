@@ -38,6 +38,17 @@ flowchart TD
    L --> D[Analytics dashboard]
 ```
 
+## Future improvements
+
+- The fixed cosine similarity threshold (0.7) can be lowered or replaced with a lightweight LLM to determine whether the retrieved context is sufficient.
+- The Redis search can be extended to hybrid retrieval by combining keyword and vector search.
+- A reranking step can be added to improve the relevance of retrieved chunks before answer generation.
+- A better topic classification using a lightweight LLM can be added.
+- Retrieval and output safeguards using a lightweight LLM can be added to validate retrieved content and generated responses.
+- Conversation capabilities can be added with short-term memory.
+- Similar question detection can be added to reuse previous answers.
+- A user interface can be added.
+
 ## Setup
 
 1. Install dependencies:
@@ -131,3 +142,5 @@ Outputs:
 ## Output
 
 - Turn log now includes: route, `memory_hit`, `top_similarity`, topic, and ingestion count.
+
+
